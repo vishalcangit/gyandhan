@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useRef, useCallback, memo} from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Loan} from '../types';
-import {Colors} from '../constants/colors';
+import {Colors, Strings, Spacing, BorderRadius, Shadows, Animation} from '../constants';
+import {formatCurrency} from '../utils';
+import {Badge, Button, DetailBox} from './ui';
 
 interface LoanDetailModalProps {
   loan: Loan | null;
@@ -19,67 +21,56 @@ interface LoanDetailModalProps {
   onClose: () => void;
 }
 
-function formatCurrency(amount: number): string {
-  return '₹' + amount.toLocaleString('en-IN');
-}
-
 const {height: SCREEN_HEIGHT} = Dimensions.get('window');
+const SPRING_CONFIG = {damping: 20, stiffness: 150, mass: 0.8, useNativeDriver: true};
 
-export function LoanDetailModal({loan, visible, onClose}: LoanDetailModalProps) {
+const LoanDetailModal: React.FC<LoanDetailModalProps> = ({loan, visible, onClose}) => {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      // Animate in
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 250,
+          duration: Animation.normal,
           useNativeDriver: true,
         }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 20,
-          stiffness: 150,
-          mass: 0.8,
-          useNativeDriver: true,
-        }),
+        Animated.spring(slideAnim, {toValue: 0, ...SPRING_CONFIG}),
       ]).start();
     } else {
-      // Reset position when not visible
       slideAnim.setValue(SCREEN_HEIGHT);
       fadeAnim.setValue(0);
     }
   }, [visible, slideAnim, fadeAnim]);
 
-  const handleClose = () => {
-    // Animate out
+  const handleClose = useCallback(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 200,
+        duration: Animation.fast + 50,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: SCREEN_HEIGHT,
-        duration: 250,
+        duration: Animation.normal,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      onClose();
-    });
-  };
+    ]).start(onClose);
+  }, [fadeAnim, slideAnim, onClose]);
 
   if (!loan) {
     return null;
   }
 
+  const isSecured = loan.loanType === 'secured';
+  const {loanDetail: strings} = Strings;
+
   return (
     <Modal
       visible={visible}
-      transparent={true}
+      transparent
       statusBarTranslucent
       onRequestClose={handleClose}>
       <View style={styles.container}>
@@ -91,34 +82,20 @@ export function LoanDetailModal({loan, visible, onClose}: LoanDetailModalProps) 
           style={[
             styles.modalContent,
             {
-              paddingBottom: insets.bottom + 20,
+              paddingBottom: insets.bottom + Spacing.xl,
               transform: [{translateY: slideAnim}],
             },
           ]}>
-          {/* Handle Bar */}
           <View style={styles.handleBar} />
 
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.bankInfo}>
               <Text style={styles.bankName}>{loan.bankName}</Text>
-              <View
-                style={[
-                  styles.loanTypeBadge,
-                  loan.loanType === 'secured'
-                    ? styles.securedBadge
-                    : styles.unsecuredBadge,
-                ]}>
-                <Text
-                  style={[
-                    styles.loanTypeText,
-                    loan.loanType === 'secured'
-                      ? styles.securedText
-                      : styles.unsecuredText,
-                  ]}>
-                  {loan.loanType === 'secured' ? 'Secured' : 'Unsecured'}
-                </Text>
-              </View>
+              <Badge
+                label={isSecured ? Strings.loanCard.secured : Strings.loanCard.unsecured}
+                variant={isSecured ? 'success' : 'primary'}
+              />
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>✕</Text>
@@ -126,46 +103,43 @@ export function LoanDetailModal({loan, visible, onClose}: LoanDetailModalProps) 
           </View>
 
           {/* Loan Amount Highlight */}
-          <View style={styles.amountSection}>
-            <Text style={styles.amountLabel}>Loan Amount</Text>
+          <View style={[styles.amountSection, Shadows.lg]}>
+            <Text style={styles.amountLabel}>{strings.loanAmount}</Text>
             <Text style={styles.amountValue}>{formatCurrency(loan.loanAmount)}</Text>
           </View>
 
           {/* Details Grid */}
           <View style={styles.detailsGrid}>
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>Interest Rate</Text>
-              <Text style={styles.detailValueHighlight}>{loan.interestRate}%</Text>
-              <Text style={styles.detailSubtext}>per annum</Text>
-            </View>
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>Tenure</Text>
-              <Text style={styles.detailValue}>{loan.tenure}</Text>
-              <Text style={styles.detailSubtext}>months</Text>
-            </View>
-            <View style={styles.detailBox}>
-              <Text style={styles.detailLabel}>Processing Fee</Text>
-              <Text style={styles.detailValue}>{formatCurrency(loan.processingFee)}</Text>
-              <Text style={styles.detailSubtext}>one time</Text>
-            </View>
+            <DetailBox
+              label={strings.interestRate}
+              value={`${loan.interestRate}%`}
+              subtext={strings.perAnnum}
+              highlight
+            />
+            <DetailBox
+              label={strings.tenure}
+              value={loan.tenure}
+              subtext={strings.months}
+            />
+            <DetailBox
+              label={strings.processingFee}
+              value={formatCurrency(loan.processingFee)}
+              subtext={strings.oneTime}
+            />
           </View>
 
           {/* Note */}
           <View style={styles.noteSection}>
-            <Text style={styles.noteText}>
-              💡 Rates may vary based on credit profile and bank policies.
-            </Text>
+            <Text style={styles.noteText}>{strings.note}</Text>
           </View>
 
           {/* Apply Button */}
-          <TouchableOpacity style={styles.applyButton} onPress={handleClose}>
-            <Text style={styles.applyButtonText}>Apply Now</Text>
-          </TouchableOpacity>
+          <Button title={strings.applyNow} onPress={handleClose} size="lg" />
         </Animated.View>
       </View>
     </Modal>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -178,24 +152,24 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    borderTopLeftRadius: BorderRadius.xxl + 8,
+    borderTopRightRadius: BorderRadius.xxl + 8,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
   },
   handleBar: {
     width: 40,
     height: 4,
     backgroundColor: Colors.border,
-    borderRadius: 2,
+    borderRadius: BorderRadius.xxs,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
   bankInfo: {
     flex: 1,
@@ -204,36 +178,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: Colors.text,
-    marginBottom: 8,
-  },
-  loanTypeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  securedBadge: {
-    backgroundColor: 'rgba(39, 174, 96, 0.12)',
-  },
-  unsecuredBadge: {
-    backgroundColor: 'rgba(78, 60, 134, 0.12)',
-  },
-  loanTypeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  securedText: {
-    color: '#27AE60',
-  },
-  unsecuredText: {
-    color: Colors.primary,
+    marginBottom: Spacing.sm,
   },
   closeButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: BorderRadius.round,
     backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
@@ -245,14 +195,14 @@ const styles = StyleSheet.create({
   },
   amountSection: {
     backgroundColor: Colors.primary,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: BorderRadius.lg + 4,
+    padding: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   amountLabel: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   amountValue: {
     fontSize: 32,
@@ -261,62 +211,20 @@ const styles = StyleSheet.create({
   },
   detailsGrid: {
     flexDirection: 'row',
-    marginBottom: 16,
-    gap: 10,
-  },
-  detailBox: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  detailValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  detailValueHighlight: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  detailSubtext: {
-    fontSize: 10,
-    color: Colors.textLight,
-    marginTop: 2,
+    marginBottom: Spacing.lg,
+    gap: Spacing.sm + 2,
   },
   noteSection: {
     backgroundColor: 'rgba(78, 60, 134, 0.06)',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 20,
+    borderRadius: BorderRadius.sm + 2,
+    padding: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   noteText: {
     fontSize: 12,
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  applyButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  applyButtonText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-  },
 });
+
+export default memo(LoanDetailModal);

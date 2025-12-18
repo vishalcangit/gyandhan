@@ -68,7 +68,8 @@ const MOCK_LOANS: Loan[] = [
 ];
 
 // Simulates network delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number): Promise<void> =>
+  new Promise(resolve => setTimeout(() => resolve(), ms));
 
 export async function fetchLoans(): Promise<Loan[]> {
   // Simulate API call with network delay
