@@ -4,10 +4,10 @@ import {
   Text,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import LottieView from 'lottie-react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Loan} from '../types';
 import {fetchLoans} from '../services/loanApi';
@@ -68,8 +68,13 @@ export function LoanListScreen() {
   if (loading) {
     return (
       <View style={[styles.centered, {paddingTop: insets.top}]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.loadingText}>Loading loans...</Text>
+        <LottieView
+          source={require('../assets/loading/loading.json')}
+          autoPlay
+          loop
+          style={styles.lottie}
+        />
+        <Text style={styles.loadingText}>Finding best loans for you...</Text>
       </View>
     );
   }
@@ -77,7 +82,7 @@ export function LoanListScreen() {
   if (error) {
     return (
       <View style={[styles.centered, {paddingTop: insets.top}]}>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>Something went wrong. Please try again.</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => loadLoans()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
@@ -86,12 +91,14 @@ export function LoanListScreen() {
   }
 
   return (
-    <View style={[styles.container, {paddingTop: insets.top}]}>
+    <View style={[styles.container, 
+    {paddingTop: insets.top, paddingBottom: insets.bottom}]}
+    >
       <View style={styles.header}>
         <Text style={styles.title}>Education Loans</Text>
         <TouchableOpacity style={styles.sortButton} onPress={toggleSort}>
           <Text style={styles.sortButtonText}>
-            Rate: {sortAscending ? 'Low → High' : 'High → Low'}
+            Rate: {sortAscending ? 'Low to High' : 'High to Low'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -128,13 +135,13 @@ export function LoanListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
     padding: 20,
   },
   header: {
@@ -163,8 +170,12 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 20,
   },
+  lottie: {
+    width: 300,
+    height: 100,
+  },
   loadingText: {
-    marginTop: 12,
+    marginTop: 16,
     fontSize: 14,
     color: Colors.textSecondary,
   },
@@ -194,4 +205,3 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 });
-
